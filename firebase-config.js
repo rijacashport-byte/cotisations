@@ -1,9 +1,9 @@
-// Collez ici la configuration donnée par Firebase (voir le guide).
+// Configuration du projet Firebase "cotisations-association"
 window.FIREBASE_CONFIG = {
-  apiKey: "COLLER_ICI",
-  authDomain: "COLLER_ICI",
-  projectId: "COLLER_ICI",
-  storageBucket: "COLLER_ICI",
-  messagingSenderId: "COLLER_ICI",
-  appId: "COLLER_ICI"
+  apiKey: "AIzaSyBmS0-pwsuXC2mT3we1fm5JkEhmaKI5NrQ",
+  authDomain: "cotisations-association-e6788.firebaseapp.com",
+  projectId: "cotisations-association-e6788",
+  storageBucket: "cotisations-association-e6788.firebasestorage.app",
+  messagingSenderId: "528575149934",
+  appId: "1:528575149934:web:64a652b58902fc16bf737f"
 };
