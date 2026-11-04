@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cotisations des membres</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Mise en page : une colonne étroite façon carnet de caisse. Le total en tête, la saisie réservée au trésorier, puis les écritures en lignes alignées date / membre / montant. */
+:root {
+  --bg: #F2F5F3;
+  --surface: #FFFFFF;
+  --ink: #13201D;
+  --muted: #5B6B66;
+  --line: #D9E1DD;
+  --accent: #0B6B5C;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E0F0EC;
+  --warn: #A33A2B;
+  --warn-soft: #F8E6E2;
+  --f-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'Instrument Sans', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1513;
+    --surface: #16201D;
+    --ink: #E6EEEB;
+    --muted: #9AABA5;
+    --line: #27352F;
+    --accent: #4CC2A9;
+    --accent-ink: #06201A;
+    --accent-soft: #1B2D28;
+    --warn: #F0988A;
+    --warn-soft: #3A1F1B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1513;
+  --surface: #16201D;
+  --ink: #E6EEEB;
+  --muted: #9AABA5;
+  --line: #27352F;
+  --accent: #4CC2A9;
+  --accent-ink: #06201A;
+  --accent-soft: #1B2D28;
+  --warn: #F0988A;
+  --warn-soft: #3A1F1B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 var(--f-body);
+  padding-block: 20px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1, h2 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* En-tête et total */
+.top { display: flex; flex-direction: column; gap: 14px; }
+.top-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.6rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; }
+.role {
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px;
+}
+.total {
+  background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.total-label { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+.total-val { font-family: var(--f-mono); font-weight: 500; font-size: 2.1rem; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.total-val small { font-size: 0.9rem; font-weight: 500; margin-left: 4px; opacity: 0.85; }
+.stats { font-size: 0.9rem; opacity: 0.9; }
+
+/* Cartes */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+
+/* Formulaire */
+form { display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+input, select {
+  width: 100%; min-height: 48px; padding: 0 12px; background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: 10px;
+}
+input.num { font-family: var(--f-mono); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.addrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; background: var(--accent-soft); border-radius: 10px; }
+.addrow input { flex: 1 1 100%; }
+.btn {
+  min-height: 48px; padding: 0 18px; border-radius: 10px; border: 1.5px solid var(--accent);
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer;
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { min-height: 40px; padding: 0 14px; }
+.btn.danger { background: var(--warn); border-color: var(--warn); color: var(--surface); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ferr { margin: 0; min-height: 1.2em; font-size: 0.9rem; color: var(--warn); }
+
+/* Liste */
+.list-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.list-head { margin-bottom: 8px; }
+.seg { display: flex; width: 100%; background: var(--accent-soft); padding: 3px; border-radius: 10px; gap: 2px; }
+.seg button { flex: 1; min-width: 0; min-height: 40px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; font-size: 0.92rem; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--accent); }
+.status { margin: 0 0 8px; padding: 8px 10px; font-size: 0.88rem; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+.colhead, .row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+.colhead.w, .row.w { grid-template-columns: 52px minmax(0, 1fr) auto 40px; }
+.colhead { padding: 8px 0; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1.5px solid var(--ink); }
+.colhead span:nth-child(3) { text-align: right; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.day { display: flex; flex-direction: column; font-family: var(--f-mono); line-height: 1.2; }
+.day .dm { font-size: 0.88rem; }
+.day .yr { font-size: 0.72rem; color: var(--muted); }
+.count { font-family: var(--f-mono); font-size: 0.88rem; color: var(--muted); }
+.who { overflow-wrap: anywhere; font-weight: 500; }
+.who .sub { display: block; font-size: 0.8rem; font-weight: 400; color: var(--muted); }
+.amt { font-family: var(--f-mono); font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.amt.none { color: var(--muted); }
+.who .sub.warnsub { color: var(--warn); }
+.rowbtn { background: none; border: 0; padding: 0; font: inherit; font-weight: 500; text-align: left; color: inherit; cursor: pointer; min-height: 44px; }
+.rowbtn::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); position: relative; top: -2px; }
+.rowbtn[aria-expanded="true"]::after { transform: rotate(-135deg); top: 2px; }
+.months { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; margin-top: 10px; }
+.chip { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); }
+.chip.paid { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.chip .cm { font-size: 0.72rem; font-weight: 600; text-transform: capitalize; }
+.chip .ca { font-family: var(--f-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.del { width: 40px; height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.del:hover { color: var(--warn); background: var(--warn-soft); }
+.confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding: 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 0.9rem; }
+.confirm span { flex: 1 1 100%; }
+.empty { margin: 12px 0 4px; color: var(--muted); font-size: 0.95rem; }
+.foot { margin-top: 14px; display: flex; }
+.foot .btn { flex: 1; }
+
+/* Message bref */
+.toast { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; pointer-events: none;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.toast div { background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 0.92rem; max-width: 520px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+@media (prefers-reduced-motion: no-preference) {
+  .toast div { animation: up 0.18s ease-out; }
+  @keyframes up { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+
+:root { color-scheme: light; }
+html, body { margin: 0; }
+.linkbtn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--accent); text-decoration: underline; cursor: pointer; min-height: 40px; }
+.login-card form { gap: 12px; }
+.setup { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 12px 14px; font-size: 0.95rem; }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div class="top-line">
+      <h1>Cotisations des membres</h1>
+      <span id="role" class="role">Consultation</span>
+    </div>
+    <div><button type="button" id="loginbtn" class="linkbtn">Connexion trésorier</button></div>
+    <div class="total">
+      <span class="total-label">Total collecté</span>
+      <span class="total-val"><span id="total">0</span><small>FCFA</small></span>
+      <span id="stats" class="stats">Aucun versement pour l'instant</span>
+    </div>
+  </header>
+
+  <section id="logincard" class="card login-card" hidden>
+    <h2>Connexion du trésorier</h2>
+    <form id="lf" novalidate>
+      <div class="field"><label for="lemail">Adresse e-mail</label><input id="lemail" type="email" autocomplete="username" inputmode="email"></div>
+      <div class="field"><label for="lpass">Mot de passe</label><input id="lpass" type="password" autocomplete="current-password"></div>
+      <p id="lerr" class="ferr" role="alert"></p>
+      <button type="submit" class="btn">Se connecter</button>
+      <button type="button" id="lcancel" class="btn ghost">Annuler</button>
+    </form>
+  </section>
+
+  <section id="seedcard" class="card" hidden>
+    <h2>Premier démarrage</h2>
+    <p class="empty" style="margin:0 0 12px">La liste des membres est vide. Vous pouvez y mettre les 9 premiers noms en un seul geste.</p>
+    <button type="button" id="seedbtn" class="btn">Ajouter les 9 membres</button>
+  </section>
+
+  <section id="saisie" class="card" hidden>
+    <h2>Nouvelle écriture</h2>
+    <form id="f" novalidate>
+      <div class="field">
+        <label for="date">Date</label>
+        <input id="date" type="date" required>
+      </div>
+      <div class="field">
+        <label for="nom">Membre</label>
+        <select id="nom" required></select>
+      </div>
+      <div id="addrow" class="addrow" hidden>
+        <input id="newnom" type="text" placeholder="Nom du nouveau membre" autocomplete="off" maxlength="80" aria-label="Nom du nouveau membre">
+        <button type="button" id="addbtn" class="btn small">Ajouter à la liste</button>
+        <button type="button" id="canceladd" class="btn small ghost">Annuler</button>
+      </div>
+      <div class="field">
+        <label for="mois">Mois de cotisation</label>
+        <select id="mois" required></select>
+      </div>
+      <div class="field">
+        <label for="montant">Montant (FCFA)</label>
+        <input id="montant" class="num" type="text" inputmode="numeric" autocomplete="off" placeholder="10 000" required>
+      </div>
+      <p id="ferr" class="ferr" role="alert"></p>
+      <button id="submit" type="submit" class="btn">Enregistrer la cotisation</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="list-head">
+      <div class="seg" role="group" aria-label="Affichage">
+        <button type="button" id="tab-e" aria-pressed="true">Écritures</button>
+        <button type="button" id="tab-m" aria-pressed="false">Par membre</button>
+        <button type="button" id="tab-o" aria-pressed="false">Par mois</button>
+      </div>
+    </div>
+    <p id="status" class="status" role="status" hidden></p>
+    <div id="colhead" class="colhead"><span>Date</span><span>Membre</span><span>Montant</span></div>
+    <ul id="rows" class="rows"></ul>
+    <ul id="mrows" class="rows" hidden></ul>
+    <ul id="orows" class="rows" hidden></ul>
+    <p id="empty" class="empty" hidden></p>
+    <div class="foot">
+      <button type="button" id="export" class="btn ghost">Exporter en Excel</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast" hidden><div id="toasttext" role="status"></div></div>
+
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var nf = new Intl.NumberFormat('fr-FR');
+  function fmt(n) { return nf.format(n).replace(/ /g, ' '); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function todayStr() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function dayParts(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function fmtDM(s) { return dayParts(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); }
+  function fmtFull(s) { return dayParts(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  function serial(s) { var p = s.split('-').map(Number); return Math.round(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000) + 25569; }
+  function slug(name) {
+    var s = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return s.slice(0, 80) || null;
+  }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function plural(n, one, many) { return n > 1 ? many : one; }
+  var MONTHS = (function () {
+    var a = [];
+    for (var y = 2026; y <= 2027; y++) {
+      for (var m = 1; m <= 12; m++) { if (y === 2026 && m < 8) continue; a.push({ key: y + '-' + pad(m) }); }
+    }
+    return a;
+  })();
+  function mDate(k) { var p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, 1); }
+  function monthName(k) { return mDate(k).toLocaleDateString('fr-FR', { month: 'short' }); }
+  function monthLabel(k) { var s = mDate(k).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function monthShort(k) { return monthName(k) + ' ' + k.slice(2, 4); }
+  function colName(n) { var s = ''; while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+  var db = null, dl = null;
+  var entries = [], members = [];
+  var canWrite = false, view = 'e', confirmId = null, busy = false;
+  var serverOk = { e: false, m: false };
+  var toastTimer = null;
+
+  function toast(msg) {
+    $('toasttext').textContent = msg;
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').hidden = true; }, 3200);
+  }
+  function showStatus(msg) {
+    var s = $('status');
+    if (msg) { s.textContent = msg; s.hidden = false; } else { s.hidden = true; }
+  }
+
+  /* ---------- Affichage ---------- */
+  function sortedEntries() {
+    return entries.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.ts || 0) - (a.ts || 0);
+    });
+  }
+  function sortedMembers() {
+    return members.slice().sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr'); });
+  }
+
+  function renderSummary() {
+    var total = 0, paid = {};
+    entries.forEach(function (e) { total += e.montant; paid[e.nom] = true; });
+    $('total').textContent = fmt(total);
+    var n = entries.length, p = Object.keys(paid).length;
+    var allCount = Math.max(members.length, p);
+    var t = n === 0 ? 'Aucun versement pour l’instant'
+      : n + ' ' + plural(n, 'versement', 'versements') + ' · ' + p + (allCount ? ' sur ' + allCount : '') + ' ' + plural(p, 'membre', 'membres') + ' ' + (p > 1 ? 'ont cotisé' : 'a cotisé');
+    $('stats').textContent = t;
+  }
+
+  function renderSelect() {
+    var sel = $('nom'), cur = sel.value;
+    sel.replaceChildren();
+    var ph = el('option', '', 'Choisir un membre'); ph.value = ''; sel.append(ph);
+    var names = {};
+    sortedMembers().forEach(function (m) {
+      var o = el('option', '', m.nom); o.value = m.nom; sel.append(o); names[m.nom] = true;
+    });
+    var nw = el('option', '', '＋ Ajouter un membre…'); nw.value = '__new__'; sel.append(nw);
+    if (cur === '__new__' || names[cur]) sel.value = cur; else sel.value = '';
+  }
+
+  function renderEntries() {
+    var ul = $('rows'); ul.replaceChildren();
+    sortedEntries().forEach(function (e) {
+      var li = el('li', 'row' + (canWrite ? ' w' : ''));
+      var d = el('div', 'day'); d.append(el('span', 'dm', fmtDM(e.date)), el('span', 'yr', e.date.slice(0, 4)));
+      var wh = el('div', 'who', e.nom);
+      wh.append(el('span', 'sub' + (e.mois ? '' : ' warnsub'), e.mois ? monthLabel(e.mois) : 'Mois non précisé'));
+      li.append(d, wh, el('div', 'amt', fmt(e.montant)));
+      if (canWrite) {
+        var b = el('button', 'del');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Supprimer l’écriture de ' + e.nom + ' du ' + fmtFull(e.date));
+        b.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14"/></svg>';
+        b.addEventListener('click', function () { confirmId = e.id; renderEntries(); });
+        li.append(b);
+      }
+      if (confirmId === e.id) {
+        var c = el('div', 'confirm');
+        c.append(el('span', '', 'Supprimer cette écriture ?'));
+        var yes = el('button', 'btn small danger', 'Supprimer'); yes.type = 'button';
+        var no = el('button', 'btn small ghost', 'Annuler'); no.type = 'button';
+        yes.addEventListener('click', function () { removeEntry(e.id); });
+        no.addEventListener('click', function () { confirmId = null; renderEntries(); });
+        c.append(yes, no); li.append(c);
+      }
+      ul.append(li);
+    });
+  }
+
+  function memberTotals() {
+    var map = {};
+    members.forEach(function (m) { map[m.nom] = { nom: m.nom, n: 0, sum: 0, last: '', byMonth: {} }; });
+    entries.forEach(function (e) {
+      var r = map[e.nom] || (map[e.nom] = { nom: e.nom, n: 0, sum: 0, last: '', byMonth: {} });
+      r.n += 1; r.sum += e.montant; if (e.date > r.last) r.last = e.date;
+      r.byMonth[e.mois] = (r.byMonth[e.mois] || 0) + e.montant;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr'); });
+  }
+
+  var openMember = null;
+  function renderMembers() {
+    var ul = $('mrows'); ul.replaceChildren();
+    memberTotals().forEach(function (r) {
+      var paidMonths = Object.keys(r.byMonth).filter(Boolean).length;
+      var li = el('li', 'row');
+      var open = openMember === r.nom;
+      var b = el('button', 'who rowbtn'); b.type = 'button';
+      b.setAttribute('aria-expanded', String(open));
+      b.append(document.createTextNode(r.nom));
+      b.append(el('span', 'sub', r.n ? paidMonths + ' ' + plural(paidMonths, 'mois payé', 'mois payés') + ' sur ' + MONTHS.length : 'Aucun versement'));
+      b.addEventListener('click', function () { openMember = open ? null : r.nom; renderMembers(); });
+      li.append(el('div', 'count', r.n ? '×' + r.n : '–'), b, el('div', 'amt' + (r.n ? '' : ' none'), r.n ? fmt(r.sum) : '–'));
+      if (open) {
+        var g = el('div', 'months');
+        MONTHS.forEach(function (m) {
+          var v = r.byMonth[m.key];
+          var c = el('div', 'chip' + (v ? ' paid' : ''));
+          c.append(el('span', 'cm', monthShort(m.key)), el('span', 'ca', v ? fmt(v) : '–'));
+          g.append(c);
+        });
+        li.append(g);
+      }
+      ul.append(li);
+    });
+  }
+
+  function renderMonths() {
+    var ul = $('orows'); ul.replaceChildren();
+    var none = entries.filter(function (e) { return !e.mois; });
+    MONTHS.forEach(function (m) {
+      var who = {}, sum = 0;
+      entries.forEach(function (e) { if (e.mois === m.key) { who[e.nom] = true; sum += e.montant; } });
+      var n = Object.keys(who).length;
+      var li = el('li', 'row');
+      var d = el('div', 'day'); d.append(el('span', 'dm', monthName(m.key)), el('span', 'yr', m.key.slice(0, 4)));
+      var mid = el('div', 'who', n ? n + ' ' + plural(n, 'membre', 'membres') + (members.length ? ' sur ' + members.length : '') : 'Aucun versement');
+      li.append(d, mid, el('div', 'amt' + (n ? '' : ' none'), n ? fmt(sum) : '–'));
+      ul.append(li);
+    });
+    if (none.length) {
+      var s = 0; none.forEach(function (e) { s += e.montant; });
+      var li2 = el('li', 'row');
+      var d2 = el('div', 'day'); d2.append(el('span', 'dm', '?'));
+      var w2 = el('div', 'who', 'Mois non précisé'); w2.append(el('span', 'sub warnsub', none.length + ' ' + plural(none.length, 'écriture', 'écritures')));
+      li2.append(d2, w2, el('div', 'amt', fmt(s)));
+      ul.append(li2);
+    }
+  }
+
+  function renderChrome() {
+    var e = view === 'e';
+    $('tab-e').setAttribute('aria-pressed', String(view === 'e'));
+    $('tab-m').setAttribute('aria-pressed', String(view === 'm'));
+    $('tab-o').setAttribute('aria-pressed', String(view === 'o'));
+    $('rows').hidden = view !== 'e'; $('mrows').hidden = view !== 'm'; $('orows').hidden = view !== 'o';
+    var ch = $('colhead');
+    ch.className = 'colhead' + (e && canWrite ? ' w' : '');
+    ch.replaceChildren();
+    if (e) { ch.append(el('span', '', 'Date'), el('span', '', 'Membre'), el('span', '', 'Montant (FCFA)')); if (canWrite) ch.append(el('span', '')); }
+    else if (view === 'm') { ch.append(el('span', '', 'Nb'), el('span', '', 'Membre'), el('span', '', 'Total (FCFA)')); }
+    else { ch.append(el('span', '', 'Mois'), el('span', '', 'Cotisants'), el('span', '', 'Total (FCFA)')); }
+    var empty = $('empty');
+    if (e && entries.length === 0) {
+      empty.textContent = canWrite ? 'Aucune écriture. Enregistrez la première cotisation avec le formulaire ci-dessus.' : 'Aucune cotisation enregistrée pour le moment.';
+      empty.hidden = false;
+    } else if (view === 'm' && memberTotals().length === 0) {
+      empty.textContent = canWrite ? 'La liste des membres est vide. Dans le formulaire, choisissez « Ajouter un membre » pour la commencer.' : 'La liste des membres est vide pour le moment.';
+      empty.hidden = false;
+    } else { empty.hidden = true; }
+    $('colhead').hidden = empty.hidden === false;
+    $('export').disabled = entries.length === 0;
+    $('saisie').hidden = !canWrite;
+    $('role').textContent = canWrite ? 'Mode trésorier' : 'Consultation';
+  }
+
+  var render = function () {
+    renderSummary(); renderSelect(); renderChrome(); renderEntries(); renderMembers(); renderMonths();
+  };
+
+  /* ---------- Saisie ---------- */
+  $('date').value = todayStr();
+  (function () {
+    var sel = $('mois'), now = todayStr().slice(0, 7), found = false;
+    MONTHS.forEach(function (m) {
+      var o = el('option', '', monthLabel(m.key)); o.value = m.key; sel.append(o);
+      if (m.key === now) found = true;
+    });
+    sel.value = found ? now : MONTHS[0].key;
+  })();
+
+  $('montant').addEventListener('input', function (ev) {
+    var digits = ev.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    ev.target.value = digits ? fmt(Number(digits)) : '';
+  });
+
+  $('nom').addEventListener('change', function () {
+    var isNew = $('nom').value === '__new__';
+    $('addrow').hidden = !isNew;
+    if (isNew) $('newnom').focus();
+  });
+  $('canceladd').addEventListener('click', function () {
+    $('addrow').hidden = true; $('newnom').value = ''; $('nom').value = '';
+  });
+  $('newnom').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); $('addbtn').click(); }
+  });
+
+  function withRetry(fn) {
+    return fn().catch(function (err) {
+      if (err && err.code === 'unavailable') {
+        return new Promise(function (r) { setTimeout(r, 400 + Math.random() * 600); }).then(fn);
+      }
+      throw err;
+    });
+  }
+  function denied(err) {
+    if (err && (err.code === 'permission-denied' || err.code === 'unauthenticated')) {
+      canWrite = false; render();
+      showStatus('Seul le trésorier connecté peut modifier les écritures.');
+      return true;
+    }
+    return false;
+  }
+
+  $('addbtn').addEventListener('click', function () {
+    var name = $('newnom').value.trim().replace(/\s+/g, ' ');
+    var err = $('ferr'); err.textContent = '';
+    if (!name) { err.textContent = 'Saisissez le nom du nouveau membre.'; return; }
+    if (name === '__new__') { err.textContent = 'Ce nom n’est pas possible.'; return; }
+    var id = slug(name);
+    if (!id) { err.textContent = 'Le nom doit contenir au moins une lettre ou un chiffre.'; return; }
+    var existing = members.filter(function (m) { return m.id === id; })[0];
+    if (existing) {
+      $('nom').value = existing.nom; $('addrow').hidden = true; $('newnom').value = '';
+      toast(existing.nom + ' est déjà dans la liste');
+      return;
+    }
+    var btn = $('addbtn'); btn.disabled = true;
+    withRetry(function () { return db.doc('membres/' + id).set({ nom: name, ts: Date.now() }); })
+      .then(function () {
+        if (!members.some(function (m) { return m.id === id; })) members.push({ id: id, nom: name });
+        renderSelect(); renderSummary();
+        $('nom').value = name; $('addrow').hidden = true; $('newnom').value = '';
+        toast(name + ' ajouté à la liste');
+      })
+      .catch(function (e) {
+        if (!denied(e)) err.textContent = 'Ajout impossible pour le moment. Réessayez dans un instant.';
+      })
+      .then(function () { btn.disabled = false; });
+  });
+
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (busy || !db) return;
+    var err = $('ferr'); err.textContent = '';
+    var date = $('date').value, nom = $('nom').value, mois = $('mois').value;
+    var montant = Number($('montant').value.replace(/\D/g, ''));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.textContent = 'Indiquez une date.'; return; }
+    if (!nom || nom === '__new__') { err.textContent = 'Choisissez un membre dans la liste.'; return; }
+    if (!/^\d{4}-\d{2}$/.test(mois)) { err.textContent = 'Choisissez le mois de la cotisation.'; return; }
+    if (!(montant > 0)) { err.textContent = 'Saisissez un montant supérieur à 0.'; return; }
+    busy = true; $('submit').disabled = true;
+    var ref = db.collection('cotisations').doc();
+    withRetry(function () { return ref.set({ date: date, nom: nom, mois: mois, montant: montant, ts: Date.now() }); })
+      .then(function () {
+        $('montant').value = ''; $('nom').value = '';
+        toast('Enregistré : ' + nom + ', ' + fmt(montant) + ' FCFA pour ' + monthLabel(mois));
+      })
+      .catch(function (e) {
+        if (!denied(e)) err.textContent = 'Enregistrement impossible pour le moment. Vérifiez la connexion et réessayez.';
+      })
+      .then(function () { busy = false; $('submit').disabled = false; });
+  });
+
+  function removeEntry(id) {
+    withRetry(function () { return db.doc('cotisations/' + id).delete(); })
+      .then(function () { confirmId = null; toast('Écriture supprimée'); })
+      .catch(function (e) { if (!denied(e)) { toast('Suppression impossible pour le moment'); } });
+  }
+
+  /* ---------- Onglets ---------- */
+  $('tab-e').addEventListener('click', function () { view = 'e'; confirmId = null; render(); });
+  $('tab-m').addEventListener('click', function () { view = 'm'; confirmId = null; render(); });
+  $('tab-o').addEventListener('click', function () { view = 'o'; confirmId = null; render(); });
+
+  /* ---------- Export Excel ---------- */
+  $('export').addEventListener('click', function () {
+    if (!window.XLSX) { toast('Le module Excel n’a pas chargé. Rechargez la page.'); return; }
+    if (!dl) { toast('L’export n’est pas disponible dans cette vue.'); return; }
+    var X = window.XLSX;
+    var list = entries.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return (a.ts || 0) - (b.ts || 0);
+    });
+    var total = 0;
+    var rows = [['Date', 'Nom', 'Mois', 'Montant (FCFA)']];
+    list.forEach(function (e) {
+      total += e.montant;
+      rows.push([{ t: 'n', v: serial(e.date), z: 'dd/mm/yyyy' }, e.nom, e.mois ? monthLabel(e.mois) : 'Non précisé', { t: 'n', v: e.montant, z: '#,##0' }]);
+    });
+    var last = rows.length;
+    rows.push(['', 'TOTAL', '', { t: 'n', f: 'SUM(D2:D' + last + ')', v: total, z: '#,##0' }]);
+    var ws1 = X.utils.aoa_to_sheet(rows);
+    ws1['!cols'] = [{ wch: 14 }, { wch: 32 }, { wch: 18 }, { wch: 18 }];
+
+    var mt = memberTotals();
+    var rows2 = [['Nom', 'Nombre de versements', 'Mois payés (sur ' + MONTHS.length + ')', 'Total (FCFA)']];
+    mt.forEach(function (r) { rows2.push([r.nom, { t: 'n', v: r.n }, { t: 'n', v: Object.keys(r.byMonth).filter(Boolean).length }, { t: 'n', v: r.sum, z: '#,##0' }]); });
+    var last2 = rows2.length;
+    rows2.push(['TOTAL', { t: 'n', f: 'SUM(B2:B' + last2 + ')', v: list.length }, '', { t: 'n', f: 'SUM(D2:D' + last2 + ')', v: total, z: '#,##0' }]);
+    var ws2 = X.utils.aoa_to_sheet(rows2);
+    ws2['!cols'] = [{ wch: 32 }, { wch: 22 }, { wch: 20 }, { wch: 18 }];
+
+    var cols = MONTHS.map(function (m) { return m.key; });
+    if (entries.some(function (e) { return !e.mois; })) cols.push('');
+    var colTot = {};
+    entries.forEach(function (e) { colTot[e.mois] = (colTot[e.mois] || 0) + e.montant; });
+    var rows3 = [['Nom'].concat(cols.map(function (k) { return k ? monthShort(k) : 'Non précisé'; }), ['Total'])];
+    mt.forEach(function (r, i) {
+      var line = [r.nom], rn = i + 2;
+      cols.forEach(function (k) { line.push(r.byMonth[k] ? { t: 'n', v: r.byMonth[k], z: '#,##0' } : ''); });
+      line.push({ t: 'n', f: 'SUM(B' + rn + ':' + colName(cols.length + 1) + rn + ')', v: r.sum, z: '#,##0' });
+      rows3.push(line);
+    });
+    var tr = rows3.length + 1, tline = ['TOTAL'];
+    cols.forEach(function (k, j) { var c = colName(j + 2); tline.push({ t: 'n', f: 'SUM(' + c + '2:' + c + (tr - 1) + ')', v: colTot[k] || 0, z: '#,##0' }); });
+    var tc = colName(cols.length + 2);
+    tline.push({ t: 'n', f: 'SUM(' + tc + '2:' + tc + (tr - 1) + ')', v: total, z: '#,##0' });
+    rows3.push(tline);
+    var ws3 = X.utils.aoa_to_sheet(rows3);
+    ws3['!cols'] = [{ wch: 28 }].concat(cols.map(function () { return { wch: 11 }; }), [{ wch: 14 }]);
+
+    var wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws1, 'Écritures');
+    X.utils.book_append_sheet(wb, ws3, 'Grille mensuelle');
+    X.utils.book_append_sheet(wb, ws2, 'Par membre');
+    var data = X.write(wb, { bookType: 'xlsx', type: 'array' });
+    var filename = 'cotisations-' + todayStr() + '.xlsx';
+    dl.save({ filename: filename, data: data })
+      .then(function () { toast('Fichier Excel enregistré'); })
+      .catch(function (e) {
+        if (e && e.code === 'declined') return;
+        toast('Export impossible pour le moment');
+      });
+  });
+
+  /* ---------- Démarrage (Firebase) ---------- */
+  var SEED = ['Kouaho Lazare', 'Ban Athanase', 'Brou Yannick', 'Kassi JB', 'Kouadio Jean Paul', 'Hamien Claver', 'Gd frère Bosson', 'Anicet Kouadio', 'Eunice Aman'];
+  var slowTimer = null, auth = null, userNow = null, subscribed = false;
+
+  function checkLoaded() {
+    if (serverOk.e && serverOk.m) { clearTimeout(slowTimer); showStatus(''); }
+  }
+
+  dl = {
+    save: function (o) {
+      return new Promise(function (resolve) {
+        var blob = new Blob([o.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = o.filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        resolve({ status: 'saved' });
+      });
+    }
+  };
+
+  function refreshAuthUi() {
+    canWrite = !!userNow;
+    $('loginbtn').textContent = userNow ? 'Déconnexion (' + userNow.email + ')' : 'Connexion trésorier';
+    if (userNow) $('logincard').hidden = true;
+    render();
+    $('seedcard').hidden = !(canWrite && serverOk.m && members.length === 0);
+  }
+  var baseRender = render;
+  render = function () { baseRender(); $('seedcard').hidden = !(canWrite && serverOk.m && members.length === 0); };
+
+  $('loginbtn').addEventListener('click', function () {
+    if (userNow) { auth.signOut(); return; }
+    $('logincard').hidden = !$('logincard').hidden;
+    if (!$('logincard').hidden) $('lemail').focus();
+  });
+  $('lcancel').addEventListener('click', function () { $('logincard').hidden = true; });
+  $('lf').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var email = $('lemail').value.trim(), pass = $('lpass').value, err = $('lerr');
+    err.textContent = '';
+    if (!email || !pass) { err.textContent = 'Saisissez votre e-mail et votre mot de passe.'; return; }
+    auth.signInWithEmailAndPassword(email, pass).then(function () { $('lpass').value = ''; })
+      .catch(function () { err.textContent = 'E-mail ou mot de passe incorrect.'; });
+  });
+
+  $('seedbtn').addEventListener('click', function () {
+    var b = $('seedbtn'); b.disabled = true;
+    var batch = fdb.batch();
+    SEED.forEach(function (n, k) { batch.set(fdb.collection('membres').doc(slug(n)), { nom: n, ts: k + 1 }); });
+    batch.commit().then(function () { toast('9 membres ajoutés'); })
+      .catch(function () { toast('Ajout impossible. Vérifiez que vous êtes connecté.'); })
+      .then(function () { b.disabled = false; });
+  });
+
+  var fdb = null;
+  function subscribe() {
+    if (subscribed) return; subscribed = true;
+    slowTimer = setTimeout(function () {
+      if (!(serverOk.e && serverOk.m)) showStatus('Connexion lente : les données affichées peuvent ne pas être à jour.');
+    }, 10000);
+    fdb.collection('cotisations').onSnapshot(function (snap) {
+      entries = snap.docs.map(function (d) { var v = d.data() || {}; return { id: d.id, date: String(v.date || ''), nom: String(v.nom || ''), mois: /^\d{4}-\d{2}$/.test(String(v.mois || '')) ? String(v.mois) : '', montant: Number(v.montant) || 0, ts: Number(v.ts) || 0 }; })
+        .filter(function (e) { return /^\d{4}-\d{2}-\d{2}$/.test(e.date) && e.nom; });
+      if (!snap.metadata.fromCache) serverOk.e = true;
+      render(); checkLoaded();
+    }, function () { showStatus('Impossible de lire les écritures pour le moment.'); });
+    fdb.collection('membres').onSnapshot(function (snap) {
+      members = snap.docs.map(function (d) { var v = d.data() || {}; return { id: d.id, nom: String(v.nom || '') }; }).filter(function (m) { return m.nom; });
+      if (!snap.metadata.fromCache) serverOk.m = true;
+      render(); checkLoaded();
+    }, function () { showStatus('Impossible de lire la liste des membres pour le moment.'); });
+  }
+
+  function start() {
+    var cfg = window.FIREBASE_CONFIG;
+    if (!window.firebase || !cfg || !cfg.apiKey || /COLLER/.test(cfg.apiKey)) {
+      render();
+      var s = $('status'); s.className = 'setup'; s.textContent = 'La page n’est pas encore reliée à Firebase. Il reste à coller la configuration dans le fichier firebase-config.js.'; s.hidden = false;
+      $('loginbtn').hidden = true;
+      return;
+    }
+    firebase.initializeApp(cfg);
+    auth = firebase.auth(); fdb = firebase.firestore();
+    db = fdb;
+    render();
+    auth.onAuthStateChanged(function (u) { userNow = u; refreshAuthUi(); });
+    subscribe();
+  }
+  render();
+  start();
+})();
+</script>
+
+</body>
+</html>
