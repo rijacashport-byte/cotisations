@@ -159,6 +159,10 @@ input.num { font-family: var(--f-mono); font-size: 1.1rem; font-variant-numeric:
 html, body { margin: 0; }
 .linkbtn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--accent); text-decoration: underline; cursor: pointer; min-height: 40px; }
 .login-card form { gap: 12px; }
+.diag { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.diag li { display: flex; gap: 8px; align-items: baseline; }
+.diag .ok { color: var(--accent); font-weight: 700; }
+.diag .ko { color: var(--warn); font-weight: 700; }
 .setup { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 12px 14px; font-size: 0.95rem; }
 </style>
 </head>
@@ -187,6 +191,8 @@ html, body { margin: 0; }
       <p id="lerr" class="ferr" role="alert"></p>
       <button type="submit" class="btn">Se connecter</button>
       <button type="button" id="lcancel" class="btn ghost">Annuler</button>
+      <button type="button" id="ltest" class="linkbtn">Tester la connexion</button>
+      <ul id="ldiag" class="diag" aria-live="polite"></ul>
     </form>
   </section>
 
@@ -664,6 +670,23 @@ html, body { margin: 0; }
     if (!$('logincard').hidden) $('lemail').focus();
   });
   $('lcancel').addEventListener('click', function () { $('logincard').hidden = true; });
+  $('ltest').addEventListener('click', function () {
+    var ul = $('ldiag'); ul.replaceChildren();
+    var tests = [
+      ['Page et outils Firebase (gstatic.com)', 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js'],
+      ['Connexion des comptes (identitytoolkit.googleapis.com)', 'https://identitytoolkit.googleapis.com/'],
+      ['Jetons de connexion (securetoken.googleapis.com)', 'https://securetoken.googleapis.com/'],
+      ['Données (firestore.googleapis.com)', 'https://firestore.googleapis.com/']
+    ];
+    tests.forEach(function (t) {
+      var li = el('li'); var mark = el('span', '', '…'); li.append(mark, el('span', '', t[0])); ul.append(li);
+      var ctl = new AbortController(); var timer = setTimeout(function () { ctl.abort(); }, 8000);
+      fetch(t[1], { mode: 'no-cors', cache: 'no-store', signal: ctl.signal })
+        .then(function () { mark.textContent = '✓ OK'; mark.className = 'ok'; })
+        .catch(function () { mark.textContent = '✗ Bloqué'; mark.className = 'ko'; })
+        .then(function () { clearTimeout(timer); });
+    });
+  });
   $('lf').addEventListener('submit', function (ev) {
     ev.preventDefault();
     var email = $('lemail').value.trim(), pass = $('lpass').value, err = $('lerr');
@@ -676,6 +699,7 @@ html, body { margin: 0; }
           : c === 'auth/operation-not-allowed' ? 'La connexion par e-mail n’est pas activée dans Firebase.'
           : c === 'auth/too-many-requests' ? 'Trop d’essais. Patientez quelques minutes.'
           : 'E-mail ou mot de passe incorrect.';
+        err.textContent += ' (code : ' + (c || 'inconnu') + ')';
       });
   });
 
