@@ -254,6 +254,38 @@ html, body { margin: 0; }
 <div id="toast" class="toast" hidden><div id="toasttext" role="status"></div></div>
 
 
+<script>
+/* Porte de secours pour la connexion.
+   Sur certains réseaux (constaté chez GVA / Canalbox à Abidjan), les adresses Google habituelles de connexion
+   ne répondent pas. On les essaie d'abord ; si elles échouent, on passe par l'autre adresse officielle de Google,
+   qui mène au même service. Le mot de passe va toujours directement chez Google, sans intermédiaire. */
+(function () {
+  var PORTES = {
+    'identitytoolkit.googleapis.com': 'identitytoolkit.mtls.googleapis.com',
+    'securetoken.googleapis.com': 'securetoken.mtls.googleapis.com'
+  };
+  var viaSecours = false;
+  var fetchDirect = window.fetch.bind(window);
+  window.fetchDirect = fetchDirect; /* pour le bouton « Tester la connexion » */
+  window.fetch = function (input, init) {
+    var m = typeof input === 'string' ? /^https:\/\/([^\/]+)(\/.*)$/.exec(input) : null;
+    var porte = m && PORTES[m[1]];
+    if (!porte) return fetchDirect(input, init);
+    var urlSecours = 'https://' + porte + m[2];
+    if (viaSecours) return fetchDirect(urlSecours, init);
+    var ctl = new AbortController();
+    var timer = setTimeout(function () { ctl.abort(); }, 7000);
+    return fetchDirect(input, Object.assign({}, init, { signal: ctl.signal })).then(function (r) {
+      clearTimeout(timer);
+      return r;
+    }, function () {
+      clearTimeout(timer);
+      viaSecours = true;
+      return fetchDirect(urlSecours, init);
+    });
+  };
+})();
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -674,17 +706,25 @@ html, body { margin: 0; }
     var ul = $('ldiag'); ul.replaceChildren();
     var tests = [
       ['Page et outils Firebase (gstatic.com)', 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js'],
-      ['Connexion des comptes (identitytoolkit.googleapis.com)', 'https://identitytoolkit.googleapis.com/'],
-      ['Jetons de connexion (securetoken.googleapis.com)', 'https://securetoken.googleapis.com/'],
+      ['Connexion, porte habituelle (identitytoolkit)', 'https://identitytoolkit.googleapis.com/'],
+      ['Connexion, porte de secours (identitytoolkit.mtls)', 'https://identitytoolkit.mtls.googleapis.com/'],
+      ['Jetons, porte habituelle (securetoken)', 'https://securetoken.googleapis.com/'],
+      ['Jetons, porte de secours (securetoken.mtls)', 'https://securetoken.mtls.googleapis.com/'],
       ['Données (firestore.googleapis.com)', 'https://firestore.googleapis.com/']
     ];
-    tests.forEach(function (t) {
+    var results = tests.map(function (t) {
       var li = el('li'); var mark = el('span', '', '…'); li.append(mark, el('span', '', t[0])); ul.append(li);
       var ctl = new AbortController(); var timer = setTimeout(function () { ctl.abort(); }, 8000);
-      fetch(t[1], { mode: 'no-cors', cache: 'no-store', signal: ctl.signal })
-        .then(function () { mark.textContent = '✓ OK'; mark.className = 'ok'; })
-        .catch(function () { mark.textContent = '✗ Bloqué'; mark.className = 'ko'; })
-        .then(function () { clearTimeout(timer); });
+      return window.fetchDirect(t[1], { mode: 'no-cors', cache: 'no-store', signal: ctl.signal })
+        .then(function () { mark.textContent = '✓ OK'; mark.className = 'ok'; return true; })
+        .catch(function () { mark.textContent = '✗ Bloqué'; mark.className = 'ko'; return false; })
+        .then(function (ok) { clearTimeout(timer); return ok; });
+    });
+    Promise.all(results).then(function (r) {
+      var ok = (r[1] || r[2]) && (r[3] || r[4]) && r[5];
+      var li = el('li'); var mark = el('span', ok ? 'ok' : 'ko', ok ? '✓' : '✗');
+      li.append(mark, el('span', '', ok ? 'Conclusion : la connexion peut fonctionner sur ce réseau.' : 'Conclusion : la connexion ne peut pas fonctionner sur ce réseau. Essayez un autre réseau.'));
+      ul.append(li);
     });
   });
   $('lf').addEventListener('submit', function (ev) {
@@ -695,7 +735,7 @@ html, body { margin: 0; }
     auth.signInWithEmailAndPassword(email, pass).then(function () { $('lpass').value = ''; })
       .catch(function (e) {
         var c = e && e.code;
-        err.textContent = c === 'auth/network-request-failed' ? 'Pas de connexion internet. Réessayez.'
+        err.textContent = c === 'auth/network-request-failed' ? 'Le service de connexion ne répond pas sur ce réseau. Touchez « Tester la connexion » ou essayez un autre réseau.'
           : c === 'auth/operation-not-allowed' ? 'La connexion par e-mail n’est pas activée dans Firebase.'
           : c === 'auth/too-many-requests' ? 'Trop d’essais. Patientez quelques minutes.'
           : 'E-mail ou mot de passe incorrect.';
