@@ -251,7 +251,7 @@ html, body { margin: 0; }
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
+<script>document.write('<script src="firebase-config.js?t=' + Date.now() + '"><\/script>');</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function () {
@@ -670,7 +670,13 @@ html, body { margin: 0; }
     err.textContent = '';
     if (!email || !pass) { err.textContent = 'Saisissez votre e-mail et votre mot de passe.'; return; }
     auth.signInWithEmailAndPassword(email, pass).then(function () { $('lpass').value = ''; })
-      .catch(function () { err.textContent = 'E-mail ou mot de passe incorrect.'; });
+      .catch(function (e) {
+        var c = e && e.code;
+        err.textContent = c === 'auth/network-request-failed' ? 'Pas de connexion internet. Réessayez.'
+          : c === 'auth/operation-not-allowed' ? 'La connexion par e-mail n’est pas activée dans Firebase.'
+          : c === 'auth/too-many-requests' ? 'Trop d’essais. Patientez quelques minutes.'
+          : 'E-mail ou mot de passe incorrect.';
+      });
   });
 
   $('seedbtn').addEventListener('click', function () {
@@ -703,9 +709,12 @@ html, body { margin: 0; }
 
   function start() {
     var cfg = window.FIREBASE_CONFIG;
-    if (!window.firebase || !cfg || !cfg.apiKey || /COLLER/.test(cfg.apiKey)) {
+    var problem = '';
+    if (!window.firebase) problem = 'Les outils Firebase n’ont pas pu se charger. Vérifiez la connexion internet (essayez en Wi-Fi ou en données mobiles), puis rechargez la page.';
+    else if (!cfg || !cfg.apiKey || /COLLER/.test(cfg.apiKey)) problem = 'La configuration Firebase est absente ou incomplète dans le fichier firebase-config.js.';
+    if (problem) {
       render();
-      var s = $('status'); s.className = 'setup'; s.textContent = 'La page n’est pas encore reliée à Firebase. Il reste à coller la configuration dans le fichier firebase-config.js.'; s.hidden = false;
+      var s = $('status'); s.className = 'setup'; s.textContent = problem; s.hidden = false;
       $('loginbtn').hidden = true;
       return;
     }
