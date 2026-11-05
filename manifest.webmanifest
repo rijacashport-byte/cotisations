@@ -1,0 +1,16 @@
+{
+  "name": "Cotisations des membres",
+  "short_name": "Cotisations",
+  "description": "Suivi des cotisations mensuelles de l'association",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F5F3",
+  "theme_color": "#0B6B5C",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
